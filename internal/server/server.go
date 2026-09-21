@@ -99,6 +99,8 @@ func (s *Server) handler(conn net.Conn) {
 
 }
 
+// -------------- 处理用户业务
+
 func (s *Server) online(u *user.User) {
 	s.MapLock.Lock()
 	s.OnlineMap[u.Name] = u
@@ -116,7 +118,16 @@ func (s *Server) offline(u *user.User) {
 }
 
 func (s *Server) handleMessage(u *user.User, msg string) {
-	s.Boradcast(u, msg)
+
+	switch msg {
+	case "who":
+		// 查询在线人数
+		s.MapLock.Lock()
+		u.WriteMessage(fmt.Sprintf("当前在线人数: %d人", len(s.OnlineMap)))
+		s.MapLock.Unlock()
+	default:
+		s.Boradcast(u, msg)
+	}
 }
 
 // 构造函数

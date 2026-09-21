@@ -19,7 +19,10 @@ func (u *User) ListenMessage() {
 		msg := <-u.C                     // 阻塞等待新信息
 		u.conn.Write([]byte(msg + "\n")) // 发送信息给客户端
 	}
+}
 
+func (u *User) WriteMessage(msg string) {
+	u.conn.Write([]byte(msg + "\n"))
 }
 
 // 构造函数
