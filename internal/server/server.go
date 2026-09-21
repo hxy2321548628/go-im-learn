@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"im/internal/user"
+	"io"
 	"net"
 	"sync"
 )
@@ -74,6 +75,29 @@ func (s *Server) handler(conn net.Conn) {
 
 	// 广播上线
 	s.Boradcast(user, "已上线")
+
+	// 处理用户接受消息
+	go func() {
+
+		buf := make([]byte, 4096) // 初始化一个 4k 的缓冲区
+
+		for {
+			n, err := conn.Read(buf) // 接受用户的信息
+			if n == 0 {              // 下线
+				s.Boradcast(user, "已下线")
+				return
+			}
+
+			if err != nil && err != io.EOF { // 有错且不是结束符号
+				fmt.Println("cocnnection error:", err)
+				return
+			}
+
+			msg := string(buf[:n-1]) // 去除结尾的换行符
+			s.Boradcast(user, msg)   // 将得到的信息广播
+		}
+
+	}()
 
 	// 阻塞当前handle
 	select {}
