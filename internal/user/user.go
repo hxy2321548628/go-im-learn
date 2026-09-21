@@ -1,6 +1,8 @@
 package user
 
-import "net"
+import (
+	"net"
+)
 
 // 用户类
 type User struct {

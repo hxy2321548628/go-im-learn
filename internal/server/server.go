@@ -13,7 +13,7 @@ type Server struct {
 	Port      string
 	OnlineMap map[string]*user.User // 在线用户列表
 	Message   chan string           // 广播信息通道
-	mapLock   sync.RWMutex
+	MapLock   sync.RWMutex
 }
 
 func (s *Server) Start() error {
@@ -51,11 +51,11 @@ func (s *Server) ListenMessage() {
 		msg := <-s.Message // 获取消息
 
 		// 上锁
-		s.mapLock.Lock()
+		s.MapLock.Lock()
 		for _, cli := range s.OnlineMap { //给每一个客户端发送信息
 			cli.C <- msg
 		}
-		s.mapLock.Unlock()
+		s.MapLock.Unlock()
 
 	}
 }
@@ -68,13 +68,8 @@ func (s *Server) handler(conn net.Conn) {
 
 	user := user.NewUser(conn)
 
-	// 记录用户
-	s.mapLock.Lock()              // 上锁, 防止并发修改map
-	s.OnlineMap[user.Name] = user // 添加用户
-	s.mapLock.Unlock()            // 解锁
-
-	// 广播上线
-	s.Boradcast(user, "已上线")
+	// 上线业务
+	s.online(user)
 
 	// 处理用户接受消息
 	go func() {
@@ -84,7 +79,7 @@ func (s *Server) handler(conn net.Conn) {
 		for {
 			n, err := conn.Read(buf) // 接受用户的信息
 			if n == 0 {              // 下线
-				s.Boradcast(user, "已下线")
+				s.offline(user)
 				return
 			}
 
@@ -94,7 +89,7 @@ func (s *Server) handler(conn net.Conn) {
 			}
 
 			msg := string(buf[:n-1]) // 去除结尾的换行符
-			s.Boradcast(user, msg)   // 将得到的信息广播
+			s.handleMessage(user, msg)
 		}
 
 	}()
@@ -102,6 +97,26 @@ func (s *Server) handler(conn net.Conn) {
 	// 阻塞当前handle
 	select {}
 
+}
+
+func (s *Server) online(u *user.User) {
+	s.MapLock.Lock()
+	s.OnlineMap[u.Name] = u
+	s.MapLock.Unlock()
+
+	s.Boradcast(u, "已上线")
+}
+
+func (s *Server) offline(u *user.User) {
+	s.MapLock.Lock()
+	delete(s.OnlineMap, u.Name)
+	s.MapLock.Unlock()
+
+	s.Boradcast(u, "已下线")
+}
+
+func (s *Server) handleMessage(u *user.User, msg string) {
+	s.Boradcast(u, msg)
 }
 
 // 构造函数
