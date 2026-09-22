@@ -5,6 +5,7 @@ import (
 	"im/internal/user"
 	"io"
 	"net"
+	"strings"
 	"sync"
 )
 
@@ -119,12 +120,35 @@ func (s *Server) offline(u *user.User) {
 
 func (s *Server) handleMessage(u *user.User, msg string) {
 
-	switch msg {
+	parts := strings.SplitN(msg, "|", 2) // 解析命令
+	cmd := parts[0]
+
+	switch cmd {
+
+	// 查询在线人数
 	case "who":
-		// 查询在线人数
 		s.MapLock.Lock()
-		u.WriteMessage(fmt.Sprintf("当前在线人数: %d人", len(s.OnlineMap)))
+		count := len(s.OnlineMap)
 		s.MapLock.Unlock()
+		u.WriteMessage(fmt.Sprintf("当前在线人数: %d人", count))
+
+	// 修改名字业务
+	case "rename":
+
+		if len(parts) < 2 || parts[1] == "" { // 检查是否有效
+			u.WriteMessage("用法: rename|新名字")
+			return
+		}
+
+		s.MapLock.Lock()
+		delete(s.OnlineMap, u.Name)
+		s.OnlineMap[parts[1]] = u
+		s.MapLock.Unlock()
+
+		u.Name = parts[1]
+		u.WriteMessage(fmt.Sprintf("您已更新用户名: %s", u.Name))
+
+	// 默认发送信息
 	default:
 		s.Boradcast(u, msg)
 	}
