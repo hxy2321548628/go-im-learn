@@ -17,9 +17,9 @@ type Server struct {
 	MapLock   sync.RWMutex
 }
 
-func (s *Server) Start() error {
+func (this *Server) Start() error {
 	// 1. 创建一个套接字
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", s.Ip, s.Port))
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", this.Ip, this.Port))
 	if err != nil {
 		fmt.Println("连接失败:", err)
 		return err
@@ -29,7 +29,7 @@ func (s *Server) Start() error {
 	defer listener.Close()
 
 	// 启动监听 ListenMessage
-	go s.ListenMessage()
+	go this.ListenMessage()
 
 	// 3. 监听
 	for {
@@ -41,36 +41,36 @@ func (s *Server) Start() error {
 			continue
 		}
 
-		go s.handler(conn)
+		go this.handler(conn)
 
 	}
 
 }
 
-func (s *Server) ListenMessage() {
+func (this *Server) ListenMessage() {
 	for {
-		msg := <-s.Message // 获取消息
+		msg := <-this.Message // 获取消息
 
 		// 上锁
-		s.MapLock.Lock()
-		for _, cli := range s.OnlineMap { //给每一个客户端发送信息
+		this.MapLock.Lock()
+		for _, cli := range this.OnlineMap { //给每一个客户端发送信息
 			cli.C <- msg
 		}
-		s.MapLock.Unlock()
+		this.MapLock.Unlock()
 
 	}
 }
 
-func (s *Server) Boradcast(user *user.User, msg string) {
-	s.Message <- fmt.Sprintf("[%s] - %s: %s", user.Addr, user.Name, msg)
+func (this *Server) Boradcast(user *user.User, msg string) {
+	this.Message <- fmt.Sprintf("[%s] - %s: %s", user.Addr, user.Name, msg)
 }
 
-func (s *Server) handler(conn net.Conn) {
+func (this *Server) handler(conn net.Conn) {
 
 	user := user.NewUser(conn)
 
 	// 上线业务
-	s.online(user)
+	this.online(user)
 
 	// 处理用户接受消息
 	go func() {
@@ -80,7 +80,7 @@ func (s *Server) handler(conn net.Conn) {
 		for {
 			n, err := conn.Read(buf) // 接受用户的信息
 			if n == 0 {              // 下线
-				s.offline(user)
+				this.offline(user)
 				return
 			}
 
@@ -90,7 +90,7 @@ func (s *Server) handler(conn net.Conn) {
 			}
 
 			msg := string(buf[:n-1]) // 去除结尾的换行符
-			s.handleMessage(user, msg)
+			this.handleMessage(user, msg)
 		}
 
 	}()
@@ -102,23 +102,23 @@ func (s *Server) handler(conn net.Conn) {
 
 // -------------- 处理用户业务
 
-func (s *Server) online(u *user.User) {
-	s.MapLock.Lock()
-	s.OnlineMap[u.Name] = u
-	s.MapLock.Unlock()
+func (this *Server) online(u *user.User) {
+	this.MapLock.Lock()
+	this.OnlineMap[u.Name] = u
+	this.MapLock.Unlock()
 
-	s.Boradcast(u, "已上线")
+	this.Boradcast(u, "已上线")
 }
 
-func (s *Server) offline(u *user.User) {
-	s.MapLock.Lock()
-	delete(s.OnlineMap, u.Name)
-	s.MapLock.Unlock()
+func (this *Server) offline(u *user.User) {
+	this.MapLock.Lock()
+	delete(this.OnlineMap, u.Name)
+	this.MapLock.Unlock()
 
-	s.Boradcast(u, "已下线")
+	this.Boradcast(u, "已下线")
 }
 
-func (s *Server) handleMessage(u *user.User, msg string) {
+func (this *Server) handleMessage(u *user.User, msg string) {
 
 	parts := strings.SplitN(msg, "|", 2) // 解析命令
 	cmd := parts[0]
@@ -127,9 +127,9 @@ func (s *Server) handleMessage(u *user.User, msg string) {
 
 	// 查询在线人数
 	case "who":
-		s.MapLock.Lock()
-		count := len(s.OnlineMap)
-		s.MapLock.Unlock()
+		this.MapLock.Lock()
+		count := len(this.OnlineMap)
+		this.MapLock.Unlock()
 		u.WriteMessage(fmt.Sprintf("当前在线人数: %d人", count))
 
 	// 修改名字业务
@@ -140,17 +140,17 @@ func (s *Server) handleMessage(u *user.User, msg string) {
 			return
 		}
 
-		s.MapLock.Lock()
-		delete(s.OnlineMap, u.Name)
-		s.OnlineMap[parts[1]] = u
-		s.MapLock.Unlock()
+		this.MapLock.Lock()
+		delete(this.OnlineMap, u.Name)
+		this.OnlineMap[parts[1]] = u
+		this.MapLock.Unlock()
 
 		u.Name = parts[1]
 		u.WriteMessage(fmt.Sprintf("您已更新用户名: %s", u.Name))
 
 	// 默认发送信息
 	default:
-		s.Boradcast(u, msg)
+		this.Boradcast(u, msg)
 	}
 }
 

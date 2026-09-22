@@ -12,17 +12,17 @@ type User struct {
 	conn net.Conn
 }
 
-func (u *User) ListenMessage() {
+func (this *User) ListenMessage() {
 	// 监听信息, 当 channal 收到广播时 立刻返回给客户端
 
 	for {
-		msg := <-u.C                     // 阻塞等待新信息
-		u.conn.Write([]byte(msg + "\n")) // 发送信息给客户端
+		msg := <-this.C                     // 阻塞等待新信息
+		this.conn.Write([]byte(msg + "\n")) // 发送信息给客户端
 	}
 }
 
-func (u *User) WriteMessage(msg string) {
-	u.conn.Write([]byte(msg + "\n"))
+func (this *User) WriteMessage(msg string) {
+	this.conn.Write([]byte(msg + "\n"))
 }
 
 // 构造函数
