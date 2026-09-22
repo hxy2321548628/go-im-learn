@@ -108,7 +108,7 @@ func (this *Server) handler(conn net.Conn) {
 		select {
 		case <-isalive:
 			// 激活select, 同时更新定时器
-		case <-time.After(10 * time.Second):
+		case <-time.After(10 * time.Minute):
 
 			user.SendMessage("你被踢了") // 超时强踢
 			close(user.C)            // 清理用户资源
@@ -141,7 +141,7 @@ func (this *Server) offline(u *user.User) {
 
 func (this *Server) handleMessage(u *user.User, msg string) {
 
-	parts := strings.SplitN(msg, "|", 2) // 解析命令
+	parts := strings.Split(msg, "|") // 解析命令
 	cmd := parts[0]
 
 	switch cmd {
@@ -155,8 +155,9 @@ func (this *Server) handleMessage(u *user.User, msg string) {
 
 	// 修改名字业务
 	case "rename":
+		// rename|新名字
 
-		if len(parts) < 2 || parts[1] == "" { // 检查是否有效
+		if len(parts) != 2 || parts[1] == "" { // 检查是否有效
 			u.SendMessage("用法: rename|新名字")
 			return
 		}
@@ -168,6 +169,23 @@ func (this *Server) handleMessage(u *user.User, msg string) {
 
 		u.Name = parts[1]
 		u.SendMessage(fmt.Sprintf("您已更新用户名: %s", u.Name))
+
+	// 私聊功能
+	case "to":
+		// to|who|msg
+
+		if len(parts) != 3 || parts[1] == "" || parts[2] == "" {
+			u.SendMessage("用法: to|who|msg")
+			return
+		}
+
+		// 查询私聊对象是否存在
+		remoteUser, ok := this.OnlineMap[parts[1]]
+		if !ok {
+			u.SendMessage("用户不在线")
+		}
+
+		remoteUser.SendMessage(fmt.Sprintf("%s 对你说: %s", u.Name, parts[2]))
 
 	// 默认发送信息
 	default:
