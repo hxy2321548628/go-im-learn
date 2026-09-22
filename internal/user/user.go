@@ -21,7 +21,7 @@ func (this *User) ListenMessage() {
 	}
 }
 
-func (this *User) WriteMessage(msg string) {
+func (this *User) SendMessage(msg string) {
 	this.conn.Write([]byte(msg + "\n"))
 }
 

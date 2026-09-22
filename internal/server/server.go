@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -72,6 +73,9 @@ func (this *Server) handler(conn net.Conn) {
 	// 上线业务
 	this.online(user)
 
+	// 监听用户是否活跃的 channal
+	isalive := make(chan bool)
+
 	// 处理用户接受消息
 	go func() {
 
@@ -91,12 +95,29 @@ func (this *Server) handler(conn net.Conn) {
 
 			msg := string(buf[:n-1]) // 去除结尾的换行符
 			this.handleMessage(user, msg)
+
+			// 更新活跃状态
+			isalive <- true
 		}
 
 	}()
 
 	// 阻塞当前handle
-	select {}
+	for {
+
+		select {
+		case <-isalive:
+			// 激活select, 同时更新定时器
+		case <-time.After(10 * time.Second):
+
+			user.SendMessage("你被踢了") // 超时强踢
+			close(user.C)            // 清理用户资源
+			conn.Close()             // 关闭连接
+			return                   // 退出当前handler
+
+		}
+
+	}
 
 }
 
@@ -130,13 +151,13 @@ func (this *Server) handleMessage(u *user.User, msg string) {
 		this.MapLock.Lock()
 		count := len(this.OnlineMap)
 		this.MapLock.Unlock()
-		u.WriteMessage(fmt.Sprintf("当前在线人数: %d人", count))
+		u.SendMessage(fmt.Sprintf("当前在线人数: %d人", count))
 
 	// 修改名字业务
 	case "rename":
 
 		if len(parts) < 2 || parts[1] == "" { // 检查是否有效
-			u.WriteMessage("用法: rename|新名字")
+			u.SendMessage("用法: rename|新名字")
 			return
 		}
 
@@ -146,7 +167,7 @@ func (this *Server) handleMessage(u *user.User, msg string) {
 		this.MapLock.Unlock()
 
 		u.Name = parts[1]
-		u.WriteMessage(fmt.Sprintf("您已更新用户名: %s", u.Name))
+		u.SendMessage(fmt.Sprintf("您已更新用户名: %s", u.Name))
 
 	// 默认发送信息
 	default:
